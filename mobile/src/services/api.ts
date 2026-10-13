@@ -1,4 +1,11 @@
-import { Restaurant, Assessment, Finding, CorrectiveAction, CommunityPost } from '../types';
+import {
+  Restaurant,
+  Assessment,
+  Finding,
+  CorrectiveAction,
+  CommunityPost,
+  ImageValidationResult,
+} from '../types';
 
 // Default to localhost, configurable via EXPO_PUBLIC_API_URL
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -53,16 +60,56 @@ export const ApiClient = {
     }
   },
 
-  async analyzeKitchenPhoto(data: { zone: string; imageBase64?: string; imageUrl?: string }): Promise<Assessment> {
-    const res = await fetch(`${this.baseUrl}/inspections/analyze`, {
+  async validateImage(base64: string): Promise<ImageValidationResult> {
+    try {
+      const res = await fetch(`${this.baseUrl}/inspections/validate-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `image_base64=${encodeURIComponent(base64)}`,
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail?.message || 'Image validation failed.');
+      }
+      return await res.json();
+    } catch (e: any) {
+      return {
+        is_valid: true, // fallback permissive if server offline
+        feedback: [],
+        file_size_bytes: 0,
+      };
+    }
+  },
+
+  async analyzeKitchenPhoto(data: {
+    zone: string;
+    imageBase64?: string;
+    imageUrl?: string;
+    restaurantId?: string;
+  }): Promise<Assessment> {
+    const payload = {
+      zone: data.zone,
+      image_base64: data.imageBase64,
+      image_url: data.imageUrl,
+      restaurant_id: data.restaurantId,
+    };
+
+    const res = await fetch(`${this.baseUrl}/inspections/analyze/json`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
+
     if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`Inspection failed: ${errorText}`);
+      const errJson = await res.json().catch(() => null);
+      const errorMsg =
+        errJson?.detail?.message ||
+        (Array.isArray(errJson?.detail?.feedback) ? errJson.detail.feedback.join('\n') : null) ||
+        (typeof errJson?.detail === 'string' ? errJson.detail : null) ||
+        `Inspection failed with status ${res.status}`;
+      throw new Error(errorMsg);
     }
+
     return await res.json();
   },
 };

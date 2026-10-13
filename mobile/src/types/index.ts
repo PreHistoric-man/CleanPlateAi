@@ -53,21 +53,45 @@ export interface Finding {
   corrective_recommendation: string;
 }
 
+export interface ScoringDeduction {
+  finding_id: string;
+  category: string;
+  title: string;
+  severity: FindingSeverity;
+  points_deducted: number;
+  rule_applied: string;
+}
+
+export interface ImageValidationResult {
+  is_valid: boolean;
+  feedback: string[];
+  width?: number;
+  height?: number;
+  format?: string;
+  file_size_bytes: number;
+  blur_score?: number;
+  brightness_score?: number;
+}
+
 export interface Assessment {
   id: string;
-  restaurant_id: string;
+  restaurant_id?: string;
   inspector_user_id?: string;
   zone: KitchenZone;
   photo_url: string;
-  overall_score: number;
-  grade: string;
+  overall_score: number | null;
+  grade: string | null;
   status: string;
   model_version: string;
   is_demo: boolean;
+  has_critical_warning?: boolean;
+  critical_warnings?: string[];
   disclaimer: string;
   limitations?: string;
   created_at: string;
   findings?: Finding[];
+  deductions?: ScoringDeduction[];
+  recommendations?: string[];
 }
 
 export interface CorrectiveAction {
